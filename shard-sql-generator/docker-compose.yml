@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  shard-sql-generator:
+    # 构建镜像
+    build: .
+    # 镜像名称
+    image: shard-sql-generator:latest
+    # 容器名称
+    container_name: shard-sql-generator
+    # 端口映射
+    ports:
+      - "3000:3000"
+    # 卷挂载，用于持久化存储自定义脚本
+    volumes:
+      - ./data:/app/data
+    # 环境变量
+    environment:
+      - PORT=3000
+    # 重启策略
+    restart: always
+    # 网络模式
+    network_mode: bridge
