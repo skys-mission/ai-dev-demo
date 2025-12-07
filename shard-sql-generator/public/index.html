@@ -6,6 +6,9 @@
     <title>分片SQL生成器</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/sql.min.js"></script>
 </head>
 <body>
     <!-- 顶部导航栏 -->
@@ -150,6 +153,13 @@
                         <button id="generate-btn" class="btn btn-primary">生成SQL</button>
                         <button id="clear-btn" class="btn btn-secondary">清空</button>
                     </div>
+                    
+                    <!-- 导入/导出按钮 -->
+                    <div class="form-actions">
+                        <button id="export-rule-btn" class="btn btn-secondary">导出规则</button>
+                        <button id="import-rule-btn" class="btn btn-secondary">导入规则</button>
+                        <input type="file" id="import-file" accept=".json" style="display: none;">
+                    </div>
                 </div>
             </aside>
 
@@ -262,25 +272,128 @@ INSERT INTO products (id, name) VALUES (?, ?);"></textarea>
 
     <!-- 帮助信息 -->
     <div id="help-content" style="display: none;">
-        <h4>使用说明</h4>
+        <h4>使用指南</h4>
         <ol>
-            <li>选择合适的分片算法</li>
-            <li>配置算法参数</li>
-            <li>输入分片键和分片键值</li>
-            <li>输入原始SQL语句</li>
-            <li>点击"生成SQL"按钮</li>
-            <li>在结果区域查看和复制生成的分片SQL</li>
+            <li><strong>选择分片算法</strong>：从下拉菜单中选择适合您需求的分片算法</li>
+            <li><strong>配置算法参数</strong>：根据选择的算法配置相应的参数</li>
+            <li><strong>设置分片键</strong>：输入用于分片的字段名（如：user_id）</li>
+            <li><strong>输入分片键值</strong>：每行输入一个分片键值，或使用换行分隔多个值</li>
+            <li><strong>编写原始SQL</strong>：在SQL输入框中输入需要分片的SQL语句</li>
+            <li><strong>生成SQL</strong>：点击"生成SQL"按钮，系统将根据配置生成分片SQL</li>
+            <li><strong>查看结果</strong>：在结果区域查看生成的分片SQL和聚合SQL</li>
+            <li><strong>复制/导出</strong>：使用提供的按钮复制或导出生成的SQL语句</li>
         </ol>
-        <h4>支持的分片算法</h4>
-        <ul>
-            <li><strong>取模算法</strong>：根据分片键值取模计算分片ID</li>
-            <li><strong>范围分片</strong>：根据配置的范围规则确定分片</li>
-            <li><strong>哈希分片</strong>：对分片键进行哈希计算后取模</li>
-            <li><strong>一致性哈希</strong>：支持虚拟节点的一致性哈希算法</li>
-            <li><strong>日期分片</strong>：按时间维度（年/月/日/小时）分片</li>
-            <li><strong>自定义脚本</strong>：支持用户编写JavaScript分片脚本</li>
-        </ul>
+        
+        <h4>分片算法详解</h4>
+        
+        <div class="algorithm-detail">
+            <h5>1. 取模算法 (Mod)</h5>
+            <p><strong>原理</strong>：根据分片键值对分片数量取模计算分片ID</p>
+            <p><strong>参数</strong>：模数（分片数量）</p>
+            <p><strong>示例</strong>：若分片键值为1001，模数为4，则分片ID为1001 % 4 = 1</p>
+            <p><strong>适用场景</strong>：数据分布均匀，分片数量固定的场景</p>
+        </div>
+        
+        <div class="algorithm-detail">
+            <h5>2. 范围分片</h5>
+            <p><strong>原理</strong>：根据配置的范围规则将数据分配到不同分片</p>
+            <p><strong>参数</strong>：JSON格式的范围规则，包含min（最小值）、max（最大值）和shard（分片ID）</p>
+            <p><strong>示例</strong>：
+                <pre>{"rules": [{"min": 0, "max": 1000, "shard": 0}, {"min": 1001, "max": 2000, "shard": 1}]}</pre>
+            </p>
+            <p><strong>适用场景</strong>：数据有明显范围特征，需要按范围查询的场景</p>
+        </div>
+        
+        <div class="algorithm-detail">
+            <h5>3. 哈希分片</h5>
+            <p><strong>原理</strong>：对分片键值进行哈希计算后取模</p>
+            <p><strong>参数</strong>：哈希算法（MD5/SHA1）、分片数量</p>
+            <p><strong>示例</strong>：使用MD5哈希算法，对字符串"user@example.com"哈希后取模</p>
+            <p><strong>适用场景</strong>：需要将不同类型的数据均匀分布的场景</p>
+        </div>
+        
+        <div class="algorithm-detail">
+            <h5>4. 一致性哈希</h5>
+            <p><strong>原理</strong>：使用一致性哈希算法，支持虚拟节点</p>
+            <p><strong>参数</strong>：物理节点数、虚拟节点数/物理节点</p>
+            <p><strong>适用场景</strong>：需要动态增减分片节点，减少数据迁移的场景</p>
+        </div>
+        
+        <div class="algorithm-detail">
+            <h5>5. 日期分片</h5>
+            <p><strong>原理</strong>：按时间维度（年/月/日/小时）进行分片</p>
+            <p><strong>参数</strong>：时间格式（YYYY/YYYYMM/YYYYMMDD/YYYYMMDDHH）</p>
+            <p><strong>示例</strong>：若分片键值为"2023-12-06"，时间格式为YYYYMM，则分片ID为202312</p>
+            <p><strong>适用场景</strong>：日志数据、时间序列数据等按时间增长的数据</p>
+        </div>
+        
+        <div class="algorithm-detail">
+            <h5>6. 自定义脚本</h5>
+            <p><strong>原理</strong>：使用JavaScript脚本自定义分片逻辑</p>
+            <p><strong>示例脚本</strong>：
+                <pre>// 基于用户名首字母分片
+function getShardId(value) {
+    const firstChar = value.charAt(0).toLowerCase();
+    return firstChar.charCodeAt(0) % 4;
+}</pre>
+            </p>
+            <p><strong>注意事项</strong>：脚本必须包含getShardId函数，接收分片键值作为参数并返回分片ID</p>
+        </div>
+        
+        <h4>SQL示例</h4>
+        
+        <div class="sql-example">
+            <h5>查询语句</h5>
+            <pre>SELECT * FROM users WHERE user_id = ? AND status = 'active';</pre>
+        </div>
+        
+        <div class="sql-example">
+            <h5>更新语句</h5>
+            <pre>UPDATE orders SET amount = 100 WHERE order_id = ? AND status = 'pending';</pre>
+        </div>
+        
+        <div class="sql-example">
+            <h5>删除语句</h5>
+            <pre>DELETE FROM logs WHERE log_id = ? AND created_at < '2023-01-01';</pre>
+        </div>
+        
+        <div class="sql-example">
+            <h5>插入语句</h5>
+            <pre>INSERT INTO products (id, name, price) VALUES (?, ?, ?);</pre>
+        </div>
+        
+        <h4>常见问题</h4>
+        
+        <div class="faq-item">
+            <strong>Q: 支持哪些SQL语句类型？</strong>
+            <p>A: 支持SELECT、UPDATE、DELETE、INSERT等常见SQL语句类型。</p>
+        </div>
+        
+        <div class="faq-item">
+            <strong>Q: 如何编写自定义分片脚本？</strong>
+            <p>A: 自定义脚本必须包含getShardId函数，接收分片键值作为参数并返回整数分片ID。脚本将在安全的环境中执行。</p>
+        </div>
+        
+        <div class="faq-item">
+            <strong>Q: 历史记录保存在哪里？</strong>
+            <p>A: 历史记录保存在浏览器的localStorage中，清除浏览器数据会导致历史记录丢失。</p>
+        </div>
+        
+        <div class="faq-item">
+            <strong>Q: 可以导出和导入分片规则吗？</strong>
+            <p>A: 是的，您可以使用"导出规则"和"导入规则"按钮来保存和加载分片配置。</p>
+        </div>
+        
+        <div class="faq-item">
+            <strong>Q: 如何处理复杂的SQL语句？</strong>
+            <p>A: 对于复杂SQL语句，建议先简化测试，确保分片逻辑正确后再使用复杂语句。</p>
+        </div>
     </div>
 </body>
-<script src="app.js"></script>
+<script src="modules/utils.js"></script>
+    <script src="modules/sql-handler.js"></script>
+    <script src="modules/shard-algorithm.js"></script>
+    <script src="modules/script-manager.js"></script>
+    <script src="modules/history-manager.js"></script>
+    <script src="app.js"></script>
 </html>

@@ -7,12 +7,11 @@ const path = require('path');
 
 // 导入核心模块
 const sqlGenerator = require('./core/sql-generator');
-const scriptManager = require('./core/script-manager');
 
 // 服务器配置
 const config = {
   port: process.env.PORT || 3000,
-  host: 'localhost',
+  host: '0.0.0.0',
   staticDir: './public',
   dataDir: './data'
 };
@@ -61,8 +60,37 @@ function serveStaticFile(filePath, res) {
   });
 }
 
+// 统一响应处理函数
+function sendResponse(res, statusCode, data) {
+  res.setHeader('Content-Type', 'application/json');
+  res.writeHead(statusCode);
+  res.end(JSON.stringify(data));
+}
+
+// 统一错误处理函数
+function sendError(res, statusCode, message, details = null) {
+  const errorResponse = { 
+    success: false, 
+    error: message 
+  };
+  if (details) {
+    errorResponse.details = details;
+  }
+  sendResponse(res, statusCode, errorResponse);
+}
+
+// 参数验证函数
+function validateParams(params, requiredFields) {
+  for (const field of requiredFields) {
+    if (!params.hasOwnProperty(field) || params[field] === undefined || params[field] === null) {
+      return { valid: false, missingField: field };
+    }
+  }
+  return { valid: true };
+}
+
 // 处理API请求
-function handleApiRequest(req, res) {
+async function handleApiRequest(req, res) {
   // 解析请求体
   let body = '';
   req.on('data', chunk => {
@@ -74,26 +102,29 @@ function handleApiRequest(req, res) {
       const path = req.url.replace('/api/', '');
       const [resource, id] = path.split('/');
 
-      // 设置响应头
-      res.setHeader('Content-Type', 'application/json');
-
       // API路由处理
       switch (resource) {
         // 生成分片SQL
         case 'generate-sql':
           if (req.method === 'POST') {
             const params = JSON.parse(body);
-            const result = sqlGenerator.generateShardSQL(
-              params.sql,
-              params.shardKey,
-              params.shardValue,
-              params.shardId
-            );
-            res.writeHead(200);
-            res.end(JSON.stringify({ success: true, result }));
+            const validation = validateParams(params, ['sql', 'shardKey', 'shardValue']);
+            if (!validation.valid) {
+              return sendError(res, 400, `缺少必填参数: ${validation.missingField}`);
+            }
+            try {
+              const result = sqlGenerator.generateShardSQL(
+                params.sql,
+                params.shardKey,
+                params.shardValue,
+                params.shardId
+              );
+              sendResponse(res, 200, { success: true, result });
+            } catch (err) {
+              return sendError(res, 400, 'SQL生成失败', err.message);
+            }
           } else {
-            res.writeHead(405);
-            res.end(JSON.stringify({ success: false, error: 'Method not allowed' }));
+            sendError(res, 405, 'Method not allowed');
           }
           break;
 
@@ -101,12 +132,59 @@ function handleApiRequest(req, res) {
         case 'batch-generate':
           if (req.method === 'POST') {
             const params = JSON.parse(body);
-            const result = sqlGenerator.generateBatchSQL(params);
-            res.writeHead(200);
-            res.end(JSON.stringify({ success: true, results: result }));
+            const validation = validateParams(params, ['sql', 'shardKey', 'shardValues', 'shardAlgorithm']);
+            if (!validation.valid) {
+              return sendError(res, 400, `缺少必填参数: ${validation.missingField}`);
+            }
+            try {
+              const result = sqlGenerator.generateBatchSQL(params);
+              sendResponse(res, 200, { success: true, results: result });
+            } catch (err) {
+              return sendError(res, 400, '批量SQL生成失败', err.message);
+            }
           } else {
-            res.writeHead(405);
-            res.end(JSON.stringify({ success: false, error: 'Method not allowed' }));
+            sendError(res, 405, 'Method not allowed');
+          }
+          break;
+          
+        // 新的生成分片SQL端点（匹配前端调用）
+        case 'generate':
+          if (req.method === 'POST') {
+            const params = JSON.parse(body);
+            const validation = validateParams(params, ['sql', 'shardKey', 'shardKeyValues', 'shardAlgorithm']);
+            if (!validation.valid) {
+              return sendError(res, 400, `缺少必填参数: ${validation.missingField}`);
+            }
+            try {
+              // 将前端参数映射到后端期望的格式
+              const batchParams = {
+                sql: params.sql,
+                shardKey: params.shardKey,
+                shardValues: params.shardKeyValues,
+                algorithm: params.shardAlgorithm,
+                algorithmConfig: {}
+              };
+              
+              // 对于自定义算法，从customScript字段获取脚本字符串
+              if (params.shardAlgorithm === 'custom') {
+                batchParams.algorithmConfig.script = params.customScript;
+              } else {
+                batchParams.algorithmConfig = params.algorithmParams || {};
+              }
+              
+              const results = sqlGenerator.generateBatchSQL(batchParams);
+              const aggregateSQL = sqlGenerator.generateAggregateSQL(results.map(r => r.sql), params.sql);
+              
+              sendResponse(res, 200, { 
+                success: true, 
+                shardSQL: results.map(r => r.sql), 
+                aggregateSQL: aggregateSQL 
+              });
+            } catch (err) {
+              return sendError(res, 400, 'SQL生成失败', err.message);
+            }
+          } else {
+            sendError(res, 405, 'Method not allowed');
           }
           break;
 
@@ -114,77 +192,34 @@ function handleApiRequest(req, res) {
         case 'calculate-shard':
           if (req.method === 'POST') {
             const params = JSON.parse(body);
-            const shardId = sqlGenerator.calculateShardId(
-              params.value,
-              params.algorithm,
-              params.config
-            );
-            res.writeHead(200);
-            res.end(JSON.stringify({ success: true, shardId }));
+            const validation = validateParams(params, ['value', 'algorithm']);
+            if (!validation.valid) {
+              return sendError(res, 400, `缺少必填参数: ${validation.missingField}`);
+            }
+            try {
+              const shardId = sqlGenerator.calculateShardId(
+                params.value,
+                params.algorithm,
+                params.config || {}
+              );
+              sendResponse(res, 200, { success: true, shardId });
+            } catch (err) {
+              return sendError(res, 400, '分片ID计算失败', err.message);
+            }
           } else {
-            res.writeHead(405);
-            res.end(JSON.stringify({ success: false, error: 'Method not allowed' }));
+            sendError(res, 405, 'Method not allowed');
           }
           break;
 
-        // 脚本管理
-        case 'scripts':
-          if (req.method === 'GET') {
-            const scripts = await scriptManager.getAllScripts();
-            res.writeHead(200);
-            res.end(JSON.stringify({ success: true, scripts }));
-          } else if (req.method === 'POST') {
-            const script = JSON.parse(body);
-            const savedScript = await scriptManager.saveCustomScript(script);
-            res.writeHead(201);
-            res.end(JSON.stringify({ success: true, script: savedScript }));
-          } else {
-            res.writeHead(405);
-            res.end(JSON.stringify({ success: false, error: 'Method not allowed' }));
-          }
-          break;
 
-        // 单个脚本管理
-        case 'script':
-          if (req.method === 'GET' && id) {
-            const script = await scriptManager.getScriptById(id);
-            if (script) {
-              res.writeHead(200);
-              res.end(JSON.stringify({ success: true, script }));
-            } else {
-              res.writeHead(404);
-              res.end(JSON.stringify({ success: false, error: 'Script not found' }));
-            }
-          } else if (req.method === 'PUT' && id) {
-            const script = JSON.parse(body);
-            script.id = id;
-            const updatedScript = await scriptManager.saveCustomScript(script);
-            res.writeHead(200);
-            res.end(JSON.stringify({ success: true, script: updatedScript }));
-          } else if (req.method === 'DELETE' && id) {
-            const success = await scriptManager.deleteCustomScript(id);
-            if (success) {
-              res.writeHead(200);
-              res.end(JSON.stringify({ success: true }));
-            } else {
-              res.writeHead(404);
-              res.end(JSON.stringify({ success: false, error: 'Script not found' }));
-            }
-          } else {
-            res.writeHead(405);
-            res.end(JSON.stringify({ success: false, error: 'Method not allowed' }));
-          }
-          break;
 
         // 默认情况
         default:
-          res.writeHead(404);
-          res.end(JSON.stringify({ success: false, error: 'API endpoint not found' }));
+          sendError(res, 404, 'API endpoint not found');
       }
     } catch (error) {
       console.error('API请求处理错误:', error);
-      res.writeHead(500);
-      res.end(JSON.stringify({ success: false, error: 'Internal server error' }));
+      sendError(res, 500, 'Internal server error', error.message);
     }
   });
 }

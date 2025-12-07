@@ -439,6 +439,51 @@ body {
   padding: 1.5rem;
 }
 
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 1.5rem;
+  border-top: 1px solid var(--border-color);
+  gap: 0.75rem;
+}
+
+.script-manager-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+/* 消息提示样式 */
+.modal-info .message-content {
+  color: var(--text-primary);
+}
+
+.modal-success .message-content {
+  color: var(--success-color);
+}
+
+.modal-error .message-content {
+  color: var(--error-color);
+}
+
+.modal-warning .message-content {
+  color: var(--warning-color);
+}
+
+.message-content p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.message-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
 /* 页脚 */
 .footer {
   background-color: var(--bg-primary);
@@ -457,9 +502,15 @@ body {
 .sql-result-item {
   margin-bottom: 1.5rem;
   padding: 1rem;
-  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.sql-result-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .sql-result-item:last-child {
@@ -468,29 +519,42 @@ body {
 
 /* 聚合SQL样式 */
 .aggregate-item {
-  border: 2px solid var(--success-color);
-  background-color: rgba(var(--success-color-rgb), 0.05);
   margin-bottom: 2rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-primary);
+  border: 1px solid var(--success-color);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.aggregate-item:hover {
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
 }
 
 .aggregate-item .result-shard {
-  color: var(--success-color);
-  font-weight: 700;
+  color: #10b981;
+  font-weight: 600;
+  font-size: 16px;
 }
 
 .result-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.5rem;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--border-color);
+}
+
+.aggregate-item .result-header {
+  border-bottom-color: #10b981;
 }
 
 .result-shard {
   font-weight: 600;
-  color: var(--primary-color);
-  font-size: 0.875rem;
+  color: var(--text-primary);
+  font-size: 14px;
 }
 
 .result-actions {
@@ -499,12 +563,104 @@ body {
 }
 
 .result-sql {
+  margin-bottom: 0;
+}
+
+.result-sql pre {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+}
+
+.result-sql code {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 0.875rem;
   line-height: 1.6;
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-all;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  display: block;
+  transition: box-shadow 0.3s ease;
+}
+
+.result-sql code:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 优化聚合SQL的样式使其更加突出 */
+.aggregate-item .result-sql code {
+  border-left: 4px solid #10b981;
+  background-color: rgba(var(--success-color-rgb), 0.03);
+  border-color: #10b981;
+  padding: 20px;
+}
+
+/* 现代化复制按钮样式 */
+.modern-copy-btn {
+    padding: 8px 16px;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.modern-copy-btn:hover {
+    background-color: #1976D2;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.modern-copy-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.modern-copy-btn .icon {
+    font-size: 16px;
+}
+
+/* Toast提示样式 */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateX(100%);
+    transition: transform 0.3s ease-in-out;
+    z-index: 1000;
+}
+
+.toast.toast-success {
+    background-color: #4CAF50;
+}
+
+.toast.toast-error {
+    background-color: #f44336;
+}
+
+.toast.toast-info {
+    background-color: #2196F3;
+}
+
+.toast.show {
+    transform: translateX(0);
 }
 
 /* 响应式设计 */
@@ -651,4 +807,120 @@ body {
 .sql-parameter {
   color: #e36209;
   font-weight: 600;
+}
+
+/* 帮助文档样式 */
+#help-content {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+#help-content h4 {
+  margin: 2rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--bg-tertiary);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+#help-content h5 {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+#help-content ol, #help-content ul {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+
+#help-content li {
+  margin-bottom: 0.5rem;
+  line-height: 1.7;
+}
+
+#help-content p {
+  margin: 0.75rem 0;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+#help-content strong {
+  color: var(--primary-color);
+}
+
+/* 算法详细说明 */
+.algorithm-detail {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+}
+
+.algorithm-detail h5 {
+  margin-top: 0;
+  color: var(--primary-color);
+}
+
+.algorithm-detail pre {
+  margin: 0.5rem 0;
+  padding: 0.75rem;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* SQL示例 */
+.sql-example {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+}
+
+.sql-example h5 {
+  margin-top: 0;
+  color: var(--success-color);
+}
+
+.sql-example pre {
+  margin: 0.5rem 0 0;
+  padding: 0.75rem;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+
+/* 常见问题 */
+.faq-item {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+}
+
+.faq-item strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.faq-item p {
+  margin: 0;
+  color: var(--text-secondary);
 }

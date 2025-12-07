@@ -8,19 +8,19 @@ console.log('=== 开始测试分片SQL生成器核心功能 ===\n');
 // 测试取模算法
 console.log('1. 测试取模算法:');
 const modResult = sqlGenerator.shardAlgorithms.mod('123456', { mod: 10 });
-console.log(`   分片值: 123456, 取模值: 10, 结果: ${modResult}`);
+console.log(`   路由值: 123456, 取模值: 10, 结果: ${modResult}`);
 
 // 测试哈希算法
 console.log('\n2. 测试哈希算法:');
 const hashResult = sqlGenerator.shardAlgorithms.hash('user_123', { numShards: 8, hashAlgorithm: 'md5' });
-console.log(`   分片值: user_123, 分片数量: 8, 结果: ${hashResult}`);
+console.log(`   路由值: user_123, 路由数量: 8, 结果: ${hashResult}`);
 
-// 测试生成分片SQL
-console.log('\n3. 测试生成分片SQL:');
+// 测试生成路由SQL
+console.log('\n3. 测试生成路由SQL:');
 const originalSQL = 'SELECT * FROM users WHERE user_id = ? AND status = 1';
 const shardSQL = sqlGenerator.generateShardSQL(originalSQL, 'user_id', '123456', 5);
 console.log(`   原始SQL: ${originalSQL}`);
-console.log(`   分片SQL: ${shardSQL}`);
+console.log(`   路由SQL: ${shardSQL}`);
 
 // 测试SQL格式化
 console.log('\n4. 测试SQL格式化:');
@@ -40,7 +40,7 @@ const batchParams = {
 
 const batchResults = sqlGenerator.generateBatchSQL(batchParams);
 batchResults.forEach((result, index) => {
-  console.log(`   ${index + 1}. 值: ${result.value}, 分片ID: ${result.shardId}`);
+  console.log(`   ${index + 1}. 值: ${result.value}, 路由ID: ${result.shardId}`);
   console.log(`      SQL: ${result.sql}`);
 });
 

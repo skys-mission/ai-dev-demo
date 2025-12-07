@@ -1,19 +1,6 @@
 // 脚本管理模块
-// 负责内置和自定义分片脚本的管理
-// 纯Node.js原生实现，使用JSON文件存储
-
-const fs = require('fs');
-const path = require('path');
-
-// 脚本存储目录
-const SCRIPTS_DIR = path.join(__dirname, '../data/scripts');
-
-// 初始化脚本目录
-function initScriptsDir() {
-  if (!fs.existsSync(SCRIPTS_DIR)) {
-    fs.mkdirSync(SCRIPTS_DIR, { recursive: true });
-  }
-}
+// 负责内置路由脚本的管理和自定义脚本的验证执行
+// 纯Node.js原生实现，自定义脚本通过API参数传递
 
 // 内置脚本模板
 const builtinScripts = [
@@ -22,33 +9,33 @@ const builtinScripts = [
     name: '取模算法',
     type: 'builtin',
     algorithm: 'mod',
-    description: '根据分片键的值进行取模运算确定分片ID',
+    description: '根据路由键的值进行取模运算确定路由ID',
     configSchema: {
       mod: {
         type: 'number',
         required: true,
         label: '取模值',
-        description: '分片数量'
+        description: '路由数量'
       }
     },
     sampleConfig: { mod: 10 }
   },
   {
     id: 'builtin-range',
-    name: '范围分片',
+    name: '范围路由',
     type: 'builtin',
     algorithm: 'range',
-    description: '根据分片键的值范围确定分片ID',
+    description: '根据路由键的值范围确定路由ID',
     configSchema: {
       rules: {
         type: 'array',
         required: true,
         label: '范围规则',
-        description: '值范围与分片ID的映射',
+        description: '值范围与路由ID的映射',
         items: {
           min: { type: 'number', required: true, label: '最小值' },
           max: { type: 'number', required: true, label: '最大值' },
-          shard: { type: 'number', required: true, label: '分片ID' }
+          shard: { type: 'number', required: true, label: '路由ID' }
         }
       }
     },
@@ -62,15 +49,15 @@ const builtinScripts = [
   },
   {
     id: 'builtin-hash',
-    name: '哈希分片',
+    name: '哈希路由',
     type: 'builtin',
     algorithm: 'hash',
-    description: '对分片键进行哈希运算确定分片ID',
+    description: '对路由键进行哈希运算确定路由ID',
     configSchema: {
       numShards: {
         type: 'number',
         required: true,
-        label: '分片数量',
+        label: '路由数量',
         description: '哈希结果的取模值'
       },
       hashAlgorithm: {
@@ -87,7 +74,7 @@ const builtinScripts = [
     name: '一致性哈希',
     type: 'builtin',
     algorithm: 'consistent-hash',
-    description: '使用一致性哈希算法确定分片ID，适用于动态增减分片的场景',
+    description: '使用一致性哈希算法确定路由ID，适用于动态增减路由的场景',
     configSchema: {
       numNodes: {
         type: 'number',
@@ -106,10 +93,10 @@ const builtinScripts = [
   },
   {
     id: 'builtin-date',
-    name: '日期分片',
+    name: '日期路由',
     type: 'builtin',
     algorithm: 'date',
-    description: '根据日期格式确定分片ID',
+    description: '根据日期格式确定路由ID',
     configSchema: {
       dateFormat: {
         type: 'string',
@@ -122,127 +109,32 @@ const builtinScripts = [
   }
 ];
 
-// 获取所有脚本（内置+自定义）
-async function getAllScripts() {
-  initScriptsDir();
-  
-  // 加载内置脚本
-  const scripts = [...builtinScripts];
-  
-  // 加载自定义脚本
-  const customScripts = await loadCustomScripts();
-  scripts.push(...customScripts);
-  
-  return scripts;
+// 获取所有内置脚本
+function getAllScripts() {
+  return [...builtinScripts];
 }
 
-// 获取单个脚本
-async function getScriptById(id) {
-  initScriptsDir();
-  
-  // 检查是否为内置脚本
-  const builtinScript = builtinScripts.find(script => script.id === id);
-  if (builtinScript) {
-    return builtinScript;
-  }
-  
-  // 查找自定义脚本
-  const customScripts = await loadCustomScripts();
-  return customScripts.find(script => script.id === id);
-}
-
-// 加载所有自定义脚本
-async function loadCustomScripts() {
-  initScriptsDir();
-  
-  try {
-    const files = fs.readdirSync(SCRIPTS_DIR);
-    const scripts = [];
-    
-    for (const file of files) {
-      if (file.endsWith('.json')) {
-        const filePath = path.join(SCRIPTS_DIR, file);
-        const content = fs.readFileSync(filePath, 'utf8');
-        const script = JSON.parse(content);
-        scripts.push(script);
-      }
-    }
-    
-    return scripts;
-  } catch (error) {
-    console.error('加载自定义脚本失败:', error);
-    return [];
-  }
-}
-
-// 保存自定义脚本
-async function saveCustomScript(script) {
-  initScriptsDir();
-  
-  // 验证脚本
-  if (!validateCustomScript(script)) {
-    throw new Error('脚本验证失败');
-  }
-  
-  // 确保ID唯一
-  if (!script.id) {
-    script.id = `custom-${Date.now()}`;
-  }
-  
-  // 设置脚本类型
-  script.type = 'custom';
-  script.algorithm = 'custom';
-  script.createdAt = script.createdAt || new Date().toISOString();
-  script.updatedAt = new Date().toISOString();
-  
-  // 保存到文件
-  const filePath = path.join(SCRIPTS_DIR, `${script.id}.json`);
-  
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(script, null, 2), 'utf8');
-    return script;
-  } catch (error) {
-    console.error('保存自定义脚本失败:', error);
-    throw new Error('保存脚本失败');
-  }
-}
-
-// 删除自定义脚本
-async function deleteCustomScript(id) {
-  initScriptsDir();
-  
-  // 不能删除内置脚本
-  if (id.startsWith('builtin-')) {
-    throw new Error('不能删除内置脚本');
-  }
-  
-  const filePath = path.join(SCRIPTS_DIR, `${id}.json`);
-  
-  try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      return true;
-    } else {
-      return false;
-    }
-  } catch (error) {
-    console.error('删除自定义脚本失败:', error);
-    throw new Error('删除脚本失败');
-  }
+// 获取单个内置脚本
+function getScriptById(id) {
+  return builtinScripts.find(script => script.id === id);
 }
 
 // 验证自定义脚本
 function validateCustomScript(script) {
   // 基本验证
   if (!script.name || typeof script.name !== 'string') {
+    console.error('脚本验证失败: 缺少有效的name字段');
     return false;
   }
   
   if (!script.description || typeof script.description !== 'string') {
+    console.error('脚本验证失败: 缺少有效的description字段');
     return false;
   }
   
   if (!script.script || typeof script.script !== 'string') {
+    console.error('脚本验证失败: 缺少有效的script字段');
+    console.log('接收到的script对象:', script);
     return false;
   }
   
@@ -258,29 +150,34 @@ function validateCustomScript(script) {
       String: String,
       Number: Number
     });
-    vm.runInContext(script.script, context);
+    
+    // 为了安全起见，总是将脚本包装在函数中执行
+    // 这样可以处理：函数声明、直接return语句、立即执行函数等各种情况
+    const wrappedScript = `(function() { ${script.script} })()`;
+    vm.runInContext(wrappedScript, context);
+    
+    console.log('脚本语法验证成功');
   } catch (error) {
     console.error('脚本语法验证失败:', error);
+    console.log('脚本内容:', script.script);
     return false;
   }
   
   // 验证配置Schema
   if (script.configSchema && typeof script.configSchema !== 'object') {
+    console.error('脚本验证失败: configSchema必须是对象');
     return false;
   }
   
+  console.log('脚本验证成功');
   return true;
 }
 
-// 执行自定义脚本
-function executeCustomScript(scriptId, value, config) {
+// 执行自定义脚本（从内容直接执行，不需要文件系统）
+function executeCustomScript(scriptContent, value, config) {
   const vm = require('vm');
   
   try {
-    // 加载脚本
-    const scriptContent = fs.readFileSync(path.join(SCRIPTS_DIR, `${scriptId}.json`), 'utf8');
-    const script = JSON.parse(scriptContent);
-    
     // 创建执行环境
     const context = vm.createContext({
       value: value,
@@ -294,7 +191,7 @@ function executeCustomScript(scriptId, value, config) {
     });
     
     // 执行脚本
-    const result = vm.runInContext(script.script, context);
+    const result = vm.runInContext(scriptContent, context);
     return parseInt(result) || 0;
   } catch (error) {
     console.error('执行自定义脚本失败:', error);
@@ -304,11 +201,8 @@ function executeCustomScript(scriptId, value, config) {
 
 // 导出模块
 module.exports = {
-  initScriptsDir,
   getAllScripts,
   getScriptById,
-  saveCustomScript,
-  deleteCustomScript,
   validateCustomScript,
   executeCustomScript,
   builtinScripts
