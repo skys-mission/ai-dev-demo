@@ -1,0 +1,22 @@
+{
+  "name": "shard-sql-generator",
+  "version": "1.0.0",
+  "description": "一个用于生成DB分片SQL的平台，支持各种分片算法和自定义脚本管理",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "sql",
+    "db",
+    "sharding",
+    "nodejs"
+  ],
+  "author": "AI Development Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

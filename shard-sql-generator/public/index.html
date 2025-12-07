@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分片SQL生成器</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/sql.min.js"></script>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <header class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <h1>分片SQL生成器</h1>
+                <span class="subtitle">Database Shard SQL Generator</span>
+            </div>
+            <div class="navbar-actions">
+                <button id="theme-toggle" class="btn-icon" title="切换主题">
+                    <span class="icon">🌙</span>
+                </button>
+                <button id="help-btn" class="btn-icon" title="帮助">
+                    <span class="icon">❓</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <div class="container">
+            <!-- 左侧：分片规则配置 -->
+            <aside class="left-panel">
+                <div class="panel-header">
+                    <h2>分片规则配置</h2>
+                </div>
+                
+                <div class="panel-content">
+                    <!-- 分片算法选择 -->
+                    <div class="form-group">
+                        <label for="shard-algorithm">分片算法</label>
+                        <select id="shard-algorithm" class="form-control">
+                            <option value="mod">取模算法 (Mod)</option>
+                            <option value="range">范围分片</option>
+                            <option value="hash">哈希分片</option>
+                            <option value="consistent-hash">一致性哈希</option>
+                            <option value="date">日期分片</option>
+                            <option value="custom">自定义脚本</option>
+                        </select>
+                    </div>
+
+                    <!-- 分片算法参数配置 -->
+                    <div id="algorithm-params" class="algorithm-params">
+                        <!-- 取模算法参数 -->
+                        <div class="params-group" data-algorithm="mod">
+                            <div class="form-group">
+                                <label for="mod-value">模数</label>
+                                <input type="number" id="mod-value" class="form-control" value="4" min="1">
+                            </div>
+                        </div>
+
+                        <!-- 范围分片参数 -->
+                        <div class="params-group" data-algorithm="range" style="display: none;">
+                            <div class="form-group">
+                                <label for="range-rules">范围规则 (JSON格式)</label>
+                                <textarea id="range-rules" class="form-control" rows="4">
+{
+  "rules": [
+    { "min": 0, "max": 100000, "shard": 0 },
+    { "min": 100001, "max": 200000, "shard": 1 },
+    { "min": 200001, "max": 300000, "shard": 2 },
+    { "min": 300001, "max": 400000, "shard": 3 }
+  ]
+}
+                                </textarea>
+                            </div>
+                        </div>
+
+                        <!-- 哈希分片参数 -->
+                        <div class="params-group" data-algorithm="hash" style="display: none;">
+                            <div class="form-group">
+                                <label for="hash-algorithm">哈希算法</label>
+                                <select id="hash-algorithm" class="form-control">
+                                    <option value="md5">MD5</option>
+                                    <option value="sha1">SHA1</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="hash-shards">分片数量</label>
+                                <input type="number" id="hash-shards" class="form-control" value="4" min="1">
+                            </div>
+                        </div>
+
+                        <!-- 一致性哈希参数 -->
+                        <div class="params-group" data-algorithm="consistent-hash" style="display: none;">
+                            <div class="form-group">
+                                <label for="consistent-nodes">物理节点数</label>
+                                <input type="number" id="consistent-nodes" class="form-control" value="4" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="consistent-virtual">虚拟节点数/物理节点</label>
+                                <input type="number" id="consistent-virtual" class="form-control" value="100" min="1">
+                            </div>
+                        </div>
+
+                        <!-- 日期分片参数 -->
+                        <div class="params-group" data-algorithm="date" style="display: none;">
+                            <div class="form-group">
+                                <label for="date-format">时间格式</label>
+                                <select id="date-format" class="form-control">
+                                    <option value="YYYY">按年</option>
+                                    <option value="YYYYMM">按月</option>
+                                    <option value="YYYYMMDD">按日</option>
+                                    <option value="YYYYMMDDHH">按小时</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 自定义脚本参数 -->
+                        <div class="params-group" data-algorithm="custom" style="display: none;">
+                            <div class="form-group">
+                                <label for="custom-script">自定义脚本</label>
+                                <select id="custom-script" class="form-control">
+                                    <option value="">请选择脚本</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <button id="manage-scripts" class="btn btn-secondary">管理脚本</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 分片键配置 -->
+                    <div class="form-group">
+                        <label for="shard-key">分片键</label>
+                        <input type="text" id="shard-key" class="form-control" placeholder="如：user_id">
+                    </div>
+
+                    <!-- 分片键值输入 -->
+                    <div class="form-group">
+                        <label for="shard-values">分片键值 (多个值用换行分隔)</label>
+                        <textarea id="shard-values" class="form-control" rows="4" placeholder="1001
+1002
+1003
+1004"></textarea>
+                    </div>
+
+                    <!-- 生成按钮 -->
+                    <div class="form-actions">
+                        <button id="generate-btn" class="btn btn-primary">生成SQL</button>
+                        <button id="clear-btn" class="btn btn-secondary">清空</button>
+                    </div>
+                    
+                    <!-- 导入/导出按钮 -->
+                    <div class="form-actions">
+                        <button id="export-rule-btn" class="btn btn-secondary">导出规则</button>
+                        <button id="import-rule-btn" class="btn btn-secondary">导入规则</button>
+                        <input type="file" id="import-file" accept=".json" style="display: none;">
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 中间：SQL输入与预览 -->
+            <section class="center-panel">
+                <div class="panel-header">
+                    <h2>SQL生成</h2>
+                </div>
+                
+                <div class="panel-content">
+                    <!-- SQL输入区域 -->
+                    <div class="input-section">
+                        <div class="section-header">
+                            <h3>原始SQL</h3>
+                            <div class="section-actions">
+                                <button id="format-sql" class="btn btn-sm btn-secondary">格式化</button>
+                            </div>
+                        </div>
+                        <textarea id="sql-input" class="sql-editor" placeholder="请输入SQL语句...
+
+示例：
+SELECT * FROM users WHERE user_id = ? AND status = 'active';
+UPDATE orders SET amount = 100 WHERE order_id = ?;
+DELETE FROM logs WHERE log_id = ?;
+INSERT INTO products (id, name) VALUES (?, ?);"></textarea>
+                    </div>
+
+                    <!-- SQL输出区域 -->
+                    <div class="output-section">
+                        <div class="section-header">
+                            <h3>生成结果</h3>
+                            <div class="section-actions">
+                                <button id="copy-all" class="btn btn-sm btn-primary">复制全部</button>
+                                <button id="export-results" class="btn btn-sm btn-secondary">导出</button>
+                            </div>
+                        </div>
+                        <div id="sql-output" class="sql-results">
+                            <div class="empty-state">
+                                <span class="icon">📝</span>
+                                <p>输入SQL并配置分片规则，点击生成按钮查看结果</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 右侧：脚本管理与历史记录 -->
+            <aside class="right-panel">
+                <div class="panel-header">
+                    <h2>脚本管理</h2>
+                </div>
+                
+                <div class="panel-content">
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="scripts">脚本列表</button>
+                        <button class="tab-btn" data-tab="history">历史记录</button>
+                    </div>
+
+                    <!-- 脚本列表 -->
+                    <div class="tab-content active" id="scripts-tab">
+                        <div id="scripts-list" class="scripts-list">
+                            <div class="empty-state">
+                                <span class="icon">📁</span>
+                                <p>暂无自定义脚本</p>
+                            </div>
+                        </div>
+                        <div class="tab-actions">
+                            <button id="add-script" class="btn btn-primary btn-sm">添加脚本</button>
+                        </div>
+                    </div>
+
+                    <!-- 历史记录 -->
+                    <div class="tab-content" id="history-tab">
+                        <div id="history-list" class="history-list">
+                            <div class="empty-state">
+                                <span class="icon">⏰</span>
+                                <p>暂无历史记录</p>
+                            </div>
+                        </div>
+                        <div class="tab-actions">
+                            <button id="clear-history" class="btn btn-secondary btn-sm">清空历史</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 分片SQL生成器 | Database Shard SQL Generator</p>
+        </div>
+    </footer>
+
+    <!-- 模态框 -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">模态框标题</h3>
+                <button id="modal-close" class="btn-icon">
+                    <span class="icon">✕</span>
+                </button>
+            </div>
+            <div id="modal-body" class="modal-body">
+                <!-- 模态框内容 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 帮助信息 -->
+    <div id="help-content" style="display: none;">
+        <h4>使用指南</h4>
+        <ol>
+            <li><strong>选择分片算法</strong>：从下拉菜单中选择适合您需求的分片算法</li>
+            <li><strong>配置算法参数</strong>：根据选择的算法配置相应的参数</li>
+            <li><strong>设置分片键</strong>：输入用于分片的字段名（如：user_id）</li>
+            <li><strong>输入分片键值</strong>：每行输入一个分片键值，或使用换行分隔多个值</li>
+            <li><strong>编写原始SQL</strong>：在SQL输入框中输入需要分片的SQL语句</li>
+            <li><strong>生成SQL</strong>：点击"生成SQL"按钮，系统将根据配置生成分片SQL</li>
+            <li><strong>查看结果</strong>：在结果区域查看生成的分片SQL和聚合SQL</li>
+            <li><strong>复制/导出</strong>：使用提供的按钮复制或导出生成的SQL语句</li>
+        </ol>
+        
+        <h4>分片算法详解</h4>
+        
+        <div class="algorithm-detail">
+            <h5>1. 取模算法 (Mod)</h5>
+            <p><strong>原理</strong>：根据分片键值对分片数量取模计算分片ID</p>
+            <p><strong>参数</strong>：模数（分片数量）</p>
+            <p><strong>示例</strong>：若分片键值为1001，模数为4，则分片ID为1001 % 4 = 1</p>
+            <p><strong>适用场景</strong>：数据分布均匀，分片数量固定的场景</p>
+        </div>
+        
+        <div class="algorithm-detail">
+            <h5>2. 范围分片</h5>
+            <p><strong>原理</strong>：根据配置的范围规则将数据分配到不同分片</p>
+            <p><strong>参数</strong>：JSON格式的范围规则，包含min（最小值）、max（最大值）和shard（分片ID）</p>
+            <p><strong>示例</strong>：
+                <pre>{"rules": [{"min": 0, "max": 1000, "shard": 0}, {"min": 1001, "max": 2000, "shard": 1}]}</pre>
+            </p>
+            <p><strong>适用场景</strong>：数据有明显范围特征，需要按范围查询的场景</p>
+        </div>
+        
+        <div class="algorithm-detail">
+            <h5>3. 哈希分片</h5>
+            <p><strong>原理</strong>：对分片键值进行哈希计算后取模</p>
+            <p><strong>参数</strong>：哈希算法（MD5/SHA1）、分片数量</p>
+            <p><strong>示例</strong>：使用MD5哈希算法，对字符串"user@example.com"哈希后取模</p>
+            <p><strong>适用场景</strong>：需要将不同类型的数据均匀分布的场景</p>
+        </div>
+        
+        <div class="algorithm-detail">
+            <h5>4. 一致性哈希</h5>
+            <p><strong>原理</strong>：使用一致性哈希算法，支持虚拟节点</p>
+            <p><strong>参数</strong>：物理节点数、虚拟节点数/物理节点</p>
+            <p><strong>适用场景</strong>：需要动态增减分片节点，减少数据迁移的场景</p>
+        </div>
+        
+        <div class="algorithm-detail">
+            <h5>5. 日期分片</h5>
+            <p><strong>原理</strong>：按时间维度（年/月/日/小时）进行分片</p>
+            <p><strong>参数</strong>：时间格式（YYYY/YYYYMM/YYYYMMDD/YYYYMMDDHH）</p>
+            <p><strong>示例</strong>：若分片键值为"2023-12-06"，时间格式为YYYYMM，则分片ID为202312</p>
+            <p><strong>适用场景</strong>：日志数据、时间序列数据等按时间增长的数据</p>
+        </div>
+        
+        <div class="algorithm-detail">
+            <h5>6. 自定义脚本</h5>
+            <p><strong>原理</strong>：使用JavaScript脚本自定义分片逻辑</p>
+            <p><strong>示例脚本</strong>：
+                <pre>// 基于用户名首字母分片
+function getShardId(value) {
+    const firstChar = value.charAt(0).toLowerCase();
+    return firstChar.charCodeAt(0) % 4;
+}</pre>
+            </p>
+            <p><strong>注意事项</strong>：脚本必须包含getShardId函数，接收分片键值作为参数并返回分片ID</p>
+        </div>
+        
+        <h4>SQL示例</h4>
+        
+        <div class="sql-example">
+            <h5>查询语句</h5>
+            <pre>SELECT * FROM users WHERE user_id = ? AND status = 'active';</pre>
+        </div>
+        
+        <div class="sql-example">
+            <h5>更新语句</h5>
+            <pre>UPDATE orders SET amount = 100 WHERE order_id = ? AND status = 'pending';</pre>
+        </div>
+        
+        <div class="sql-example">
+            <h5>删除语句</h5>
+            <pre>DELETE FROM logs WHERE log_id = ? AND created_at < '2023-01-01';</pre>
+        </div>
+        
+        <div class="sql-example">
+            <h5>插入语句</h5>
+            <pre>INSERT INTO products (id, name, price) VALUES (?, ?, ?);</pre>
+        </div>
+        
+        <h4>常见问题</h4>
+        
+        <div class="faq-item">
+            <strong>Q: 支持哪些SQL语句类型？</strong>
+            <p>A: 支持SELECT、UPDATE、DELETE、INSERT等常见SQL语句类型。</p>
+        </div>
+        
+        <div class="faq-item">
+            <strong>Q: 如何编写自定义分片脚本？</strong>
+            <p>A: 自定义脚本必须包含getShardId函数，接收分片键值作为参数并返回整数分片ID。脚本将在安全的环境中执行。</p>
+        </div>
+        
+        <div class="faq-item">
+            <strong>Q: 历史记录保存在哪里？</strong>
+            <p>A: 历史记录保存在浏览器的localStorage中，清除浏览器数据会导致历史记录丢失。</p>
+        </div>
+        
+        <div class="faq-item">
+            <strong>Q: 可以导出和导入分片规则吗？</strong>
+            <p>A: 是的，您可以使用"导出规则"和"导入规则"按钮来保存和加载分片配置。</p>
+        </div>
+        
+        <div class="faq-item">
+            <strong>Q: 如何处理复杂的SQL语句？</strong>
+            <p>A: 对于复杂SQL语句，建议先简化测试，确保分片逻辑正确后再使用复杂语句。</p>
+        </div>
+    </div>
+</body>
+<script src="modules/utils.js"></script>
+    <script src="modules/sql-handler.js"></script>
+    <script src="modules/shard-algorithm.js"></script>
+    <script src="modules/script-manager.js"></script>
+    <script src="modules/history-manager.js"></script>
+    <script src="app.js"></script>
+</html>
